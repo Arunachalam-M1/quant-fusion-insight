@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickSeries, HistogramSeries, LineSeries } from "lightweight-charts";
+import { useEffect, useRef } from "react";
+import { createChart, IChartApi, ColorType, LineStyle, CrosshairMode } from "lightweight-charts";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCandles, fetchVolume, fetchIndicators } from "@/lib/api";
 import { SkeletonChart, NoData } from "@/components/SkeletonLoaders";
@@ -18,7 +18,6 @@ export function ChartSection() {
     if (!chartContainerRef.current || isLoading) return;
     if (!candles?.length) return;
 
-    // Clean up previous chart
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
@@ -28,7 +27,7 @@ export function ChartSection() {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { color: "#000000" },
+        background: { type: ColorType.Solid, color: "#000000" },
         textColor: "#888888",
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
@@ -38,9 +37,7 @@ export function ChartSection() {
         horzLines: { color: "#1a1a1a" },
       },
       crosshair: {
-        mode: 0,
-        vertLine: { color: "#444", width: 1, style: 2 },
-        horzLine: { color: "#444", width: 1, style: 2 },
+        mode: CrosshairMode.Normal,
       },
       rightPriceScale: {
         borderColor: "#2a2a2a",
@@ -52,8 +49,7 @@ export function ChartSection() {
     });
     chartRef.current = chart;
 
-    // Candlestick series
-    const candleSeries = chart.addSeries(CandlestickSeries, {
+    const candleSeries = chart.addCandlestickSeries({
       upColor: "#00ff88",
       downColor: "#ff3b3b",
       borderUpColor: "#00ff88",
@@ -63,9 +59,8 @@ export function ChartSection() {
     });
     candleSeries.setData(candles);
 
-    // Volume histogram
     if (volume?.length) {
-      const volumeSeries = chart.addSeries(HistogramSeries, {
+      const volumeSeries = chart.addHistogramSeries({
         priceFormat: { type: "volume" },
         priceScaleId: "volume",
       });
@@ -78,56 +73,18 @@ export function ChartSection() {
       })));
     }
 
-    // Bollinger Bands
     if (indicators?.bb_upper?.length) {
-      const bbUpper = chart.addSeries(LineSeries, {
-        color: "rgba(255,255,255,0.2)",
-        lineWidth: 1,
-        lineStyle: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      bbUpper.setData(indicators.bb_upper);
-
-      const bbMiddle = chart.addSeries(LineSeries, {
-        color: "rgba(255,255,255,0.15)",
-        lineWidth: 1,
-        lineStyle: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      bbMiddle.setData(indicators.bb_middle);
-
-      const bbLower = chart.addSeries(LineSeries, {
-        color: "rgba(255,255,255,0.2)",
-        lineWidth: 1,
-        lineStyle: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      bbLower.setData(indicators.bb_lower);
+      const opts = { color: "rgba(255,255,255,0.2)", lineWidth: 1 as const, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false };
+      chart.addLineSeries(opts).setData(indicators.bb_upper);
+      chart.addLineSeries({ ...opts, color: "rgba(255,255,255,0.15)" }).setData(indicators.bb_middle);
+      chart.addLineSeries(opts).setData(indicators.bb_lower);
     }
 
-    // SMA 20 & 50
     if (indicators?.sma_20?.length) {
-      const sma20 = chart.addSeries(LineSeries, {
-        color: "rgba(255,255,255,0.5)",
-        lineWidth: 1,
-        lineStyle: 1,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      sma20.setData(indicators.sma_20);
+      chart.addLineSeries({ color: "rgba(255,255,255,0.5)", lineWidth: 1 as const, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false }).setData(indicators.sma_20);
     }
     if (indicators?.sma_50?.length) {
-      const sma50 = chart.addSeries(LineSeries, {
-        color: "rgba(255,255,255,0.3)",
-        lineWidth: 1,
-        lineStyle: 1,
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      sma50.setData(indicators.sma_50);
+      chart.addLineSeries({ color: "rgba(255,255,255,0.3)", lineWidth: 1 as const, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false }).setData(indicators.sma_50);
     }
 
     chart.timeScale().fitContent();
@@ -146,7 +103,6 @@ export function ChartSection() {
     };
   }, [candles, volume, indicators, isLoading]);
 
-  // Stat pills data
   const lastCandle = candles?.[candles.length - 1];
   const prevCandle = candles?.[candles.length - 2];
   const dayChange = lastCandle && prevCandle
@@ -160,8 +116,6 @@ export function ChartSection() {
   return (
     <div className="relative">
       <div ref={chartContainerRef} className="w-full" />
-      
-      {/* Floating stat pills */}
       <div className="absolute top-3 right-3 flex gap-2 z-10">
         {lastCandle && (
           <div className="bg-panel/90 border border-panel-border rounded px-3 py-1 font-mono text-xs">
